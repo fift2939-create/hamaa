@@ -14,8 +14,16 @@ interface TasksProps {
 
 const Tasks: React.FC<TasksProps> = ({ tasks, departments, employees, user, project, onAddTask, onUpdateStatus }) => {
   const [showModal, setShowModal] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPriority, setFilterPriority] = useState<Priority | 'ALL'>('ALL');
+  
+  // Advanced Filter States
+  const [filterDept, setFilterDept] = useState<string>('ALL');
+  const [filterEmp, setFilterEmp] = useState<string>('ALL');
+  const [dateStart, setDateStart] = useState<string>('');
+  const [dateEnd, setDateEnd] = useState<string>('');
+
   const [statusChangeRequest, setStatusChangeRequest] = useState<{ id: string, status: TaskStatus } | null>(null);
 
   const [formData, setFormData] = useState({
@@ -32,9 +40,23 @@ const Tasks: React.FC<TasksProps> = ({ tasks, departments, employees, user, proj
     return tasks.filter(t => {
       const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesPriority = filterPriority === 'ALL' || t.priority === filterPriority;
-      return matchesSearch && matchesPriority;
+      const matchesDept = filterDept === 'ALL' || t.departmentId === filterDept;
+      const matchesEmp = filterEmp === 'ALL' || t.employeeId === filterEmp;
+      const matchesDateStart = !dateStart || t.deadline >= dateStart;
+      const matchesDateEnd = !dateEnd || t.deadline <= dateEnd;
+      
+      return matchesSearch && matchesPriority && matchesDept && matchesEmp && matchesDateStart && matchesDateEnd;
     });
-  }, [tasks, searchTerm, filterPriority]);
+  }, [tasks, searchTerm, filterPriority, filterDept, filterEmp, dateStart, dateEnd]);
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setFilterPriority('ALL');
+    setFilterDept('ALL');
+    setFilterEmp('ALL');
+    setDateStart('');
+    setDateEnd('');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +125,6 @@ const Tasks: React.FC<TasksProps> = ({ tasks, departments, employees, user, proj
     }
   };
 
-  // Find target task for dynamic message
   const requestedTask = statusChangeRequest ? tasks.find(t => t.id === statusChangeRequest.id) : null;
 
   return (
@@ -124,33 +145,105 @@ const Tasks: React.FC<TasksProps> = ({ tasks, departments, employees, user, proj
         )}
       </div>
 
-      <div className="bg-white/50 backdrop-blur-xl p-6 rounded-[2.5rem] shadow-2xl border border-white/60 flex flex-col md:flex-row gap-6 items-center">
-        <div className="flex-1 relative w-full">
-           <input 
-            type="text" 
-            placeholder="البحث عن مهمة..." 
-            className="w-full h-14 pr-12 pl-6 rounded-2xl border-2 border-white/40 bg-white/40 focus:bg-white focus:border-violet-500 transition-all font-bold outline-none text-slate-800"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-           />
-           <svg className="absolute right-4 top-4 w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+      {/* Filter Bar */}
+      <div className="bg-white/50 backdrop-blur-xl p-6 rounded-[2.5rem] shadow-2xl border border-white/60">
+        <div className="flex flex-col md:flex-row gap-6 items-center">
+          <div className="flex-1 relative w-full">
+            <input 
+              type="text" 
+              placeholder="البحث عن اسم المهمة..." 
+              className="w-full h-14 pr-12 pl-6 rounded-2xl border-2 border-white/40 bg-white/40 focus:bg-white focus:border-violet-500 transition-all font-bold outline-none text-slate-800"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <svg className="absolute right-4 top-4 w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </div>
+          
+          <div className="flex gap-4 w-full md:w-auto">
+            <button 
+              onClick={() => setShowFilters(!showFilters)}
+              className={`px-6 h-14 rounded-2xl font-black text-xs transition-all border-2 flex items-center gap-2 ${showFilters ? 'bg-violet-600 text-white border-violet-600' : 'bg-white/30 text-slate-500 border-white/60 hover:bg-white/60'}`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+              تصفية متقدمة
+            </button>
+            <div className="hidden md:flex gap-2">
+              {(['ALL', Priority.HIGH, Priority.MEDIUM, Priority.LOW] as const).map(p => (
+                <button 
+                  key={p}
+                  onClick={() => setFilterPriority(p)}
+                  className={`px-4 py-3 rounded-2xl font-black text-[10px] transition-all border-2 backdrop-blur-md ${filterPriority === p ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white/30 text-slate-500 border-white/60 hover:bg-white/60'}`}
+                >
+                  {p === 'ALL' ? 'الكل' : p === Priority.HIGH ? 'العاجلة' : p === Priority.MEDIUM ? 'المتوسطة' : 'العادية'}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="flex gap-4 w-full md:w-auto">
-           {(['ALL', Priority.HIGH, Priority.MEDIUM, Priority.LOW] as const).map(p => (
-             <button 
-              key={p}
-              onClick={() => setFilterPriority(p)}
-              className={`flex-1 md:flex-none px-6 py-3 rounded-2xl font-black text-xs transition-all border-2 backdrop-blur-md ${filterPriority === p ? 'bg-slate-900 text-white border-slate-900 shadow-xl scale-105' : 'bg-white/30 text-slate-500 border-white/60 hover:bg-white/60'}`}
-             >
-               {p === 'ALL' ? 'الكل' : p === Priority.HIGH ? 'العاجلة' : p === Priority.MEDIUM ? 'المتوسطة' : 'العادية'}
-             </button>
-           ))}
-        </div>
+
+        {/* Advanced Filters Expandable Section */}
+        {showFilters && (
+          <div className="mt-8 pt-8 border-t border-white/40 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in slide-in-from-top-4 duration-300">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">تصفية حسب القسم</label>
+              <select 
+                value={filterDept}
+                onChange={(e) => setFilterDept(e.target.value)}
+                className="w-full h-12 px-4 rounded-xl border-2 border-white/60 bg-white/40 font-bold text-sm outline-none focus:bg-white transition-all"
+              >
+                <option value="ALL">جميع الأقسام</option>
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">تصفية حسب الموظف</label>
+              <select 
+                value={filterEmp}
+                onChange={(e) => setFilterEmp(e.target.value)}
+                className="w-full h-12 px-4 rounded-xl border-2 border-white/60 bg-white/40 font-bold text-sm outline-none focus:bg-white transition-all"
+              >
+                <option value="ALL">جميع الموظفين</option>
+                {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">من تاريخ (Deadline)</label>
+              <input 
+                type="date"
+                value={dateStart}
+                onChange={(e) => setDateStart(e.target.value)}
+                className="w-full h-12 px-4 rounded-xl border-2 border-white/60 bg-white/40 font-bold text-sm outline-none focus:bg-white transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">إلى تاريخ (Deadline)</label>
+              <div className="flex gap-2">
+                <input 
+                  type="date"
+                  value={dateEnd}
+                  onChange={(e) => setDateEnd(e.target.value)}
+                  className="w-full h-12 px-4 rounded-xl border-2 border-white/60 bg-white/40 font-bold text-sm outline-none focus:bg-white transition-all flex-1"
+                />
+                <button 
+                  onClick={resetFilters}
+                  className="h-12 w-12 flex items-center justify-center bg-rose-50 text-rose-500 rounded-xl border-2 border-rose-100 hover:bg-rose-500 hover:text-white transition-all"
+                  title="إعادة ضبط"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-8">
         {filteredTasks.length > 0 ? filteredTasks.map(task => {
           const emp = employees.find(e => e.id === task.employeeId);
+          const dept = departments.find(d => d.id === task.departmentId);
           const config = priorityConfig[task.priority];
           
           return (
@@ -158,7 +251,6 @@ const Tasks: React.FC<TasksProps> = ({ tasks, departments, employees, user, proj
               key={task.id} 
               className={`backdrop-blur-xl p-8 rounded-[3.5rem] border-2 transition-all duration-500 group relative overflow-hidden shadow-sm ${config.bg} ${config.border} ${config.hoverBorder} ${config.shadow}`}
             >
-              {/* Priority Accent Bar */}
               <div className={`absolute top-0 right-0 w-2.5 h-full ${config.accent}`}></div>
               
               <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
@@ -180,7 +272,10 @@ const Tasks: React.FC<TasksProps> = ({ tasks, departments, employees, user, proj
                       <div className={`w-9 h-9 rounded-xl text-white flex items-center justify-center font-black text-xs shadow-lg ${config.accent}`}>
                         {emp?.name[0] || '؟'}
                       </div>
-                      <div className="text-xs font-black text-slate-700 uppercase tracking-wider">{emp?.name || 'غير محدد'}</div>
+                      <div className="flex flex-col">
+                        <div className="text-xs font-black text-slate-700 uppercase tracking-wider">{emp?.name || 'غير محدد'}</div>
+                        <div className="text-[10px] font-bold text-slate-400">{dept?.name}</div>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3 bg-white/60 backdrop-blur-sm px-5 py-2.5 rounded-2xl border border-white/80 shadow-sm">
                        <svg className={`w-5 h-5 ${config.text}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -206,12 +301,13 @@ const Tasks: React.FC<TasksProps> = ({ tasks, departments, employees, user, proj
           );
         }) : (
           <div className="py-20 text-center bg-white/40 backdrop-blur-md rounded-[4rem] border-4 border-dashed border-slate-200">
-            <p className="text-slate-400 font-black text-xl italic">لا توجد مهام مطابقة لخيارات البحث</p>
+            <p className="text-slate-400 font-black text-xl italic">لا توجد مهام مطابقة لخيارات البحث الحالية</p>
+            <button onClick={resetFilters} className="mt-4 text-violet-600 font-black text-sm hover:underline">عرض جميع المهام</button>
           </div>
         )}
       </div>
 
-      {/* Status Change Confirmation Modal - Dynamic Message */}
+      {/* Confirmation Modal and Task Add Modal (Existing Logic) */}
       {statusChangeRequest && requestedTask && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-[3rem] w-full max-w-lg p-10 animate-in zoom-in-95 shadow-2xl border border-violet-100">
@@ -222,7 +318,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, departments, employees, user, proj
                 <h3 className="text-2xl font-black text-slate-900 tracking-tight">تحديث حالة المهمة</h3>
                 <div className="bg-slate-50 p-6 rounded-3xl mt-6 border border-slate-100 shadow-inner">
                   <p className="text-slate-700 text-sm font-bold leading-relaxed mb-2">
-                    Are you sure you want to change the status of 
+                    هل أنت متأكد من رغبتك في تغيير حالة 
                     <span className="text-violet-600 block my-1 font-black text-base">"{requestedTask.title}"</span>
                   </p>
                   <div className="flex items-center justify-center gap-4 text-xs font-black">
@@ -237,7 +333,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, departments, employees, user, proj
                   onClick={confirmStatusChange}
                   className="flex-[2] bg-violet-600 text-white h-16 rounded-2xl font-black hover:bg-violet-700 transition-all shadow-xl shadow-violet-100"
                 >
-                  نعم، تأكيد التغيير
+                  تأكيد التغيير
                 </button>
                 <button 
                   onClick={() => setStatusChangeRequest(null)}

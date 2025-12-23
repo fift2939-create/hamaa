@@ -147,25 +147,9 @@ const App: React.FC = () => {
     };
   }, [currentUser?.id, addNotification, visibleTasks.length]);
 
-  const handleUpdateStatus = (tid: string, s: TaskStatus) => {
-    setTasks(prev => {
-      const task = prev.find(t => t.id === tid);
-      if (task && task.status !== s) {
-        addNotification(
-          'تحديث حالة المهمة',
-          `تم تغيير حالة المهمة "${task.title}" إلى ${s}.`,
-          'status'
-        );
-      }
-      return prev.map(t => t.id === tid ? { ...t, status: s } : t);
-    });
-  };
-
-  if (!currentUser) return <Auth onLogin={(user) => setCurrentUser(user)} />;
-
+  // Moved hooks above conditional return to fix React Error #310
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // تجميع الإشعارات حسب النوع
   const groupedNotifications = useMemo(() => {
     const groups: Record<AppNotification['type'], { label: string, color: string, items: AppNotification[] }> = {
       assignment: { label: 'مهام جديدة', color: 'text-emerald-600 bg-emerald-50', items: [] },
@@ -182,6 +166,23 @@ const App: React.FC = () => {
 
     return Object.entries(groups).filter(([_, group]) => group.items.length > 0);
   }, [notifications]);
+
+  const handleUpdateStatus = (tid: string, s: TaskStatus) => {
+    setTasks(prev => {
+      const task = prev.find(t => t.id === tid);
+      if (task && task.status !== s) {
+        addNotification(
+          'تحديث حالة المهمة',
+          `تم تغيير حالة المهمة "${task.title}" إلى ${s}.`,
+          'status'
+        );
+      }
+      return prev.map(t => t.id === tid ? { ...t, status: s } : t);
+    });
+  };
+
+  // Conditional return must happen AFTER all hooks have been defined
+  if (!currentUser) return <Auth onLogin={(user) => setCurrentUser(user)} />;
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-['Tajawal'] overflow-x-hidden" dir="rtl">
