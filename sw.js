@@ -1,10 +1,10 @@
 
 const CACHE_NAME = 'himma-v1';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/index.tsx',
-  '/manifest.json'
+  './',
+  './index.html',
+  './index.tsx',
+  './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -16,6 +16,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Simple cache-first strategy
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request);
